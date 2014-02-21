@@ -7,7 +7,7 @@ import gevent
 from status import StatusGreenlet
 
 
-class BaseDaemon(object):
+class Daemon(object):
     VERSION = 'unknown'
     TYPE = 'unknown'
 
@@ -46,19 +46,3 @@ class BaseDaemon(object):
     def work(self):
         """To be implemented by sub-class."""
         raise NotImplementedError()
-
-
-class BaconDaemon(BaseDaemon):
-    VERSION = '0.1-dev'
-    TYPE = 'bacon'
-
-    def work(self):
-        print 'frying bacon.'
-        while True:
-            gevent.sleep(5)
-            print 'batch of bacon ready.'
-            self._stats['bacon_strips'] += 1
-
-
-if __name__ == '__main__':
-    BaconDaemon().run()
