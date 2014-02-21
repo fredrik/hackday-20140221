@@ -16,13 +16,10 @@ class SomeDaemon(object):
         worker = gevent.spawn(self.run)
         status = gevent.spawn(self.status)
 
-        while True:
-            if worker.ready():
-                print 'worker done.'
-            if status.ready():
-                print 'status done.'
-            print 'zzz'
-            gevent.sleep(2)
+        worker.join()
+        print 'worker done:', worker.get()
+        status.kill()
+        print 'done.'
 
     def status(self):
         app._status = self._status
@@ -30,10 +27,11 @@ class SomeDaemon(object):
         http_server.serve_forever()
 
     def run(self):
-        while True:
+        for i in range(5):
             print 'running'
             self._status['units'] += 1
             gevent.sleep(0.25)
+        return 32
 
 
 def main():
