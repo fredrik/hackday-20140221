@@ -1,6 +1,7 @@
 import json
 from flask import Flask
 
+# the application
 app = Flask(__name__)
 
 

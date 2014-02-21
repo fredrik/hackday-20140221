@@ -8,7 +8,8 @@ from app import app
 
 
 class BaseDaemon(object):
-    VERSION = 'no-version'
+    VERSION = 'unknown'
+    TYPE = 'unknown'
 
     def __init__(self):
         self._started_at = time()
@@ -19,13 +20,14 @@ class BaseDaemon(object):
         return {
             'status': 'ok',
             'version': self.VERSION,
+            'type': self.TYPE,
             'uptime': int(time() - self._started_at),  # seconds
             'stats': self._stats,
         }
 
     def run(self):
-        """Boot workers."""
-        worker = gevent.spawn(self.worker)
+        """Boot worker."""
+        worker = gevent.spawn(self.work)
         status = gevent.spawn(self.status_greenlet)
 
         worker.join()
@@ -43,15 +45,17 @@ class BaseDaemon(object):
         raise NotImplementedError()
 
 
-class SomeDaemon(BaseDaemon):
+class BaconDaemon(BaseDaemon):
     VERSION = '0.1-dev'
+    TYPE = 'bacon'
 
-    def worker(self):
+    def work(self):
+        print 'frying bacon.'
         while True:
-            print 'work work'
-            self._stats['units'] += 1
-            gevent.sleep(0.25)
+            gevent.sleep(5)
+            print 'batch of bacon ready.'
+            self._stats['bacon_strips'] += 1
 
 
 if __name__ == '__main__':
-    SomeDaemon().run()
+    BaconDaemon().run()
