@@ -38,10 +38,53 @@ class StatusGreenlet(gevent.Greenlet):
 
     def _run(self):
         port = random.choice(xrange(*self.PORT_RANGE))
-        print 'StatusGreenlet serving on http://0.0.0.0:{}/'.format(port)
+        address = 'http://localhost:{}/'.format(port)
+
+        server = gevent.Greenlet.spawn(self.serve, port)
+        register = gevent.Greenlet.spawn(self.register, address)
+
+        print 'StatusGreenlet serving on {}/'.format(address)
+
+        register.join()
+        server.join()
+
+    def serve(self, port):
         app._status = self._status
         http_server = WSGIServer(('', port), app)
         http_server.serve_forever()
+
+    def register(self, address):
+        """Register with control tower."""
+        print 'register:', self
+
+        url = '{base}/register'.format(base=API_ADDRESS)
+        data = {
+            'address': address,
+            'type': self.observed.TYPE,
+        }
+        headers = {'Content-type': 'application/json'}
+        response = requests.post(url, data=json.dumps(data), headers=headers)
+
+        # store registration info.
+        data = json.loads(response.text)
+        self._secret_key = data.get('secret_key')
+        self._worker_id = data.get('worker_id')
+
+        print 'registered as worker', self._worker_id
+        return True
+
+    def deregister(self):
+        """Deregister with control tower."""
+        if not self._worker_id:
+            print "can't deregister; not registered."
+            return
+        url = '{}/worker/{}/deregister'.format(API_ADDRESS, self._worker_id)
+        data = {'secret_key': self._secret_key}
+        headers = {'Content-type': 'application/json'}
+        response = requests.post(url, data=json.dumps(data), headers=headers)
+
+        response.raise_for_status()
+        return True
 
 
 class BaseDaemon(object):
@@ -63,17 +106,14 @@ class BaseDaemon(object):
 
         worker = gevent.spawn(self.work)
 
-        registration = gevent.spawn(self.registration_greenlet)
-        self._deregister = None
-
-        self.lets = [status, registration, worker]
+        self.lets = [status, worker]
 
         worker.join()
         print 'worker done:', worker.get()
 
         # send deregistration to tower, with timeout.
         print 'dereg.'
-        gevent.spawn(self.deregister).join(timeout=2)
+        gevent.spawn(status.deregister).join(timeout=2)
         print 'dereg done.'
 
         print 'run exits.'
@@ -87,35 +127,6 @@ class BaseDaemon(object):
             else:
                 print 'already ready:', let
         print 'done reaping.'
-
-    def registration_greenlet(self):
-        """Register with the API."""
-        url = '{base}/register'.format(base=API_ADDRESS)
-        data = {
-            'address': '',
-            'type': self.TYPE,
-        }
-        headers = {'Content-type': 'application/json'}
-        response = requests.post(url, data=json.dumps(data), headers=headers)
-
-        # store registration info.
-        data = json.loads(response.text)
-        self._secret_key = data.get('secret_key')
-        self._worker_id = data.get('worker_id')
-
-        print 'registered as worker', self._worker_id
-
-    def deregister(self):
-        if not self._worker_id:
-            print "can't deregister; not registered."
-            return
-        url = '{}/worker/{}/deregister'.format(API_ADDRESS, self._worker_id)
-        data = {'secret_key': self._secret_key}
-        headers = {'Content-type': 'application/json'}
-        response = requests.post(url, data=json.dumps(data), headers=headers)
-
-        response.raise_for_status()
-        return True
 
     def work(self):
         """To be implemented by sub-class."""
