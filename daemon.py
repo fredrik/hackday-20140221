@@ -31,6 +31,7 @@ class Daemon(object):
         # keep track of greenlets so that we can shut them down.
         self.greenlets = [status, worker]
 
+        # wait for worker to be done.
         worker.join()
 
         # send deregistration to tower, with timeout.
