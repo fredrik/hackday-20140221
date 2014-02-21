@@ -40,6 +40,10 @@ class Worker():
         }
 
 
+# TODO:
+# use Flask-RESTful http://flask-restful.readthedocs.org/en/latest/
+
+
 @app.route('/')
 def root():
     """System information."""
