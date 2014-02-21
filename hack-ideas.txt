@@ -1,0 +1,29 @@
+hack ideas:
+
+hockey scores
+visual scraping
+ - bbc (web page)
+ - live telecast (video)
+annoterad kod
+alla demoner har ett api.
+player search i elasticsearch.
+when are we alive?
+ - green areas
+ - google calendar
+ -: hook up to autoscaling
+stream of interesting graphs and numbers on simple white web page
+reactiongif.io: server monitoring visualised in emojis and reaction gifs
+queue counters
+servers talk in hipchat
+open source tracking // timing middleware
+log and visualise postgres logs
+developer's box on aws
+ : follows you around
+graphs in graphite, man
+audio feedback: whistles
+ : speaker in the office
+raspberry pi nfc check in
+docker all the things
+led display
+run webapp for any branch
+hubot hipchat
