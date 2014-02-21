@@ -55,8 +55,6 @@ class StatusGreenlet(gevent.Greenlet):
 
     def register(self, address):
         """Register with control tower."""
-        print 'register:', self
-
         url = '{base}/register'.format(base=API_ADDRESS)
         data = {
             'address': address,
@@ -84,6 +82,7 @@ class StatusGreenlet(gevent.Greenlet):
         response = requests.post(url, data=json.dumps(data), headers=headers)
 
         response.raise_for_status()
+        print 'deregistered', self._worker_id
         return True
 
 
@@ -99,34 +98,29 @@ class BaseDaemon(object):
         gevent.signal(signal.SIGINT, self._shutdown)
 
     def run(self):
-        """Spawn."""
+        """Spawn status and worker greenlets."""
 
+        # the main reason we're here.
+        worker = gevent.spawn(self.work)
+
+        # expose a status service over http.
         status = StatusGreenlet(self)
         status.start()
 
-        worker = gevent.spawn(self.work)
-
-        self.lets = [status, worker]
+        # keep track of greenlets so that we can shut them down.
+        self.greenlets = [status, worker]
 
         worker.join()
-        print 'worker done:', worker.get()
 
         # send deregistration to tower, with timeout.
-        print 'dereg.'
         gevent.spawn(status.deregister).join(timeout=2)
-        print 'dereg done.'
 
-        print 'run exits.'
+        print 'exit.'
 
     def _shutdown(self):
-        print 'reaping.'
-        for let in self.lets:
-            if not let.ready():
-                print 'forcefully killing', let
-                let.kill()
-            else:
-                print 'already ready:', let
-        print 'done reaping.'
+        for greenlet in self.greenlets:
+            if not greenlet.ready():
+                greenlet.kill()
 
     def work(self):
         """To be implemented by sub-class."""
