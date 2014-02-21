@@ -1,3 +1,4 @@
+import signal
 import json
 from time import time
 from collections import Counter
@@ -15,6 +16,7 @@ API_ADDRESS = 'http://localhost:6400'
 
 random_port = 2348
 
+
 class BaseDaemon(object):
     VERSION = 'unknown'
     TYPE = 'unknown'
@@ -22,6 +24,9 @@ class BaseDaemon(object):
     def __init__(self):
         self._started_at = time()
         self._stats = Counter()
+
+        gevent.signal(signal.SIGQUIT, self._shutdown)
+        gevent.signal(signal.SIGINT, self._shutdown)
 
     def _status(self):
         """Returns a status dict."""
@@ -38,12 +43,29 @@ class BaseDaemon(object):
         worker = gevent.spawn(self.work)
         status = gevent.spawn(self.status_greenlet)
         registration = gevent.spawn(self.registration_greenlet)
+        self._deregister = None
+
+        self.lets = [status, registration, worker]
 
         worker.join()
         print 'worker done:', worker.get()
-        status.kill()
-        registration.kill()  # TODO: deregister
-        print 'done.'
+
+        # send deregistration to tower, with timeout.
+        print 'dereg.'
+        gevent.spawn(self.deregister).join(timeout=2)
+        print 'dereg done.'
+
+        print 'run exits.'
+
+    def _shutdown(self):
+        print 'reaping.'
+        for let in self.lets:
+            if not let.ready():
+                print 'forcefully killing', let
+                let.kill()
+            else:
+                print 'already ready:', let
+        print 'done reaping.'
 
     def status_greenlet(self):
         app._status = self._status
@@ -56,14 +78,30 @@ class BaseDaemon(object):
         data = {
             'address': '',
             'type': self.TYPE,
-            # TODO: version?
         }
         headers = {'Content-type': 'application/json'}
         response = requests.post(url, data=json.dumps(data), headers=headers)
 
-        print response
+        # store registration info.
+        data = json.loads(response.text)
+        self._secret_key = data.get('secret_key')
+        self._worker_id = data.get('worker_id')
 
-    def worker(self):
+        print 'registered as worker', self._worker_id
+
+    def deregister(self):
+        if not self._worker_id:
+            print "can't deregister; not registered."
+            return
+        url = '{}/worker/{}/deregister'.format(API_ADDRESS, self._worker_id)
+        data = {'secret_key': self._secret_key}
+        headers = {'Content-type': 'application/json'}
+        response = requests.post(url, data=json.dumps(data), headers=headers)
+
+        response.raise_for_status()
+        return True
+
+    def work(self):
         """To be implemented by sub-class."""
         raise NotImplementedError()
 
