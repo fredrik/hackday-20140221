@@ -7,8 +7,8 @@ from gevent.wsgi import WSGIServer
 from app import app
 
 
-class SomeDaemon(object):
-    VERSION = '0.1'
+class BaseDaemon(object):
+    VERSION = 'no-version'
 
     def __init__(self):
         self._started_at = time()
@@ -26,29 +26,32 @@ class SomeDaemon(object):
     def run(self):
         """Boot workers."""
         worker = gevent.spawn(self.worker)
-        status = gevent.spawn(self.status_worker)
+        status = gevent.spawn(self.status_greenlet)
 
         worker.join()
         print 'worker done:', worker.get()
         status.kill()
         print 'done.'
 
-    def status_worker(self):
+    def status_greenlet(self):
         app._status = self._status
         http_server = WSGIServer(('', 5000), app)
         http_server.serve_forever()
+
+    def worker(self):
+        """To be implemented by sub-class."""
+        raise NotImplementedError()
+
+
+class SomeDaemon(BaseDaemon):
+    VERSION = '0.1-dev'
 
     def worker(self):
         while True:
             print 'work work'
             self._stats['units'] += 1
             gevent.sleep(0.25)
-        return 32
-
-
-def main():
-    SomeDaemon().run()
 
 
 if __name__ == '__main__':
-    main()
+    SomeDaemon().run()
