@@ -1,8 +1,11 @@
-# a flask app.
+import json
 from flask import Flask
+
 app = Flask(__name__)
+
+
 
 
 @app.route('/')
 def status():
-    return 'status: ok'
+    return json.dumps(app._status)

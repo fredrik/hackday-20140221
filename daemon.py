@@ -1,17 +1,15 @@
-import logging
-
 import gevent
 from gevent.wsgi import WSGIServer
 
 from app import app
 
 
-logger = logging.getLogger('daemon')
-
-
 class SomeDaemon(object):
     def __init__(self):
-        logger.info('SomeDaemon starting.')
+        self._status = {
+            'status': 'ok',
+            'units': 0,
+        }
 
     def start(self):
         """Boot workers."""
@@ -27,14 +25,14 @@ class SomeDaemon(object):
             gevent.sleep(2)
 
     def status(self):
-        logger.info('status worker: starting.')
+        app._status = self._status
         http_server = WSGIServer(('', 5000), app)
         http_server.serve_forever()
-        logger.info('status worker is done/dead.')
 
     def run(self):
         while True:
             print 'running'
+            self._status['units'] += 1
             gevent.sleep(0.25)
 
 
