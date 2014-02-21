@@ -1,12 +1,12 @@
+import random
 import signal
 import json
 from time import time
 from collections import Counter
 
+import requests
 import gevent
 from gevent.wsgi import WSGIServer
-
-import requests
 
 from app import app
 
@@ -14,11 +14,10 @@ from app import app
 API_ADDRESS = 'http://localhost:6400'
 
 
-random_port = 2348
-
-
 class StatusGreenlet(gevent.Greenlet):
     """Expose `status_function` over HTTP."""
+
+    PORT_RANGE = (9000, 9900)
 
     def __init__(self, status_function):
         gevent.Greenlet.__init__(self)
@@ -28,9 +27,10 @@ class StatusGreenlet(gevent.Greenlet):
         return '<StatusGreenlet>'
 
     def _run(self):
-        print 'StatusGreenlet running.'
+        port = random.choice(xrange(*self.PORT_RANGE))
+        print 'StatusGreenlet running: http://0.0.0.0:{}/'.format(port)
         app._status = self.status_function
-        http_server = WSGIServer(('', random_port), app)
+        http_server = WSGIServer(('', port), app)
         http_server.serve_forever()
         print 'StatusGreenlet done.'
 
