@@ -17,6 +17,24 @@ API_ADDRESS = 'http://localhost:6400'
 random_port = 2348
 
 
+class StatusGreenlet(gevent.Greenlet):
+    """Expose `status_function` over HTTP."""
+
+    def __init__(self, status_function):
+        gevent.Greenlet.__init__(self)
+        self.status_function = status_function
+
+    def __str__(self):
+        return '<StatusGreenlet>'
+
+    def _run(self):
+        print 'StatusGreenlet running.'
+        app._status = self.status_function
+        http_server = WSGIServer(('', random_port), app)
+        http_server.serve_forever()
+        print 'StatusGreenlet done.'
+
+
 class BaseDaemon(object):
     VERSION = 'unknown'
     TYPE = 'unknown'
@@ -40,8 +58,12 @@ class BaseDaemon(object):
 
     def run(self):
         """Spawn."""
+
+        status = StatusGreenlet(self._status)
+        status.start()
+
         worker = gevent.spawn(self.work)
-        status = gevent.spawn(self.status_greenlet)
+
         registration = gevent.spawn(self.registration_greenlet)
         self._deregister = None
 
@@ -66,11 +88,6 @@ class BaseDaemon(object):
             else:
                 print 'already ready:', let
         print 'done reaping.'
-
-    def status_greenlet(self):
-        app._status = self._status
-        http_server = WSGIServer(('', random_port), app)
-        http_server.serve_forever()
 
     def registration_greenlet(self):
         """Register with the API."""
