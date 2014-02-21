@@ -19,20 +19,29 @@ class StatusGreenlet(gevent.Greenlet):
 
     PORT_RANGE = (9000, 9900)
 
-    def __init__(self, status_function):
+    def __init__(self, observed):
         gevent.Greenlet.__init__(self)
-        self.status_function = status_function
+        self.observed = observed
 
     def __str__(self):
         return '<StatusGreenlet>'
 
+    def _status(self):
+        """Returns a status dict."""
+        return {
+            'status': 'ok',
+            'version': self.observed.VERSION,
+            'type': self.observed.TYPE,
+            'uptime': int(time() - self.observed._started_at),  # seconds
+            'stats': self.observed._stats,
+        }
+
     def _run(self):
         port = random.choice(xrange(*self.PORT_RANGE))
-        print 'StatusGreenlet running: http://0.0.0.0:{}/'.format(port)
-        app._status = self.status_function
+        print 'StatusGreenlet serving on http://0.0.0.0:{}/'.format(port)
+        app._status = self._status
         http_server = WSGIServer(('', port), app)
         http_server.serve_forever()
-        print 'StatusGreenlet done.'
 
 
 class BaseDaemon(object):
@@ -46,20 +55,10 @@ class BaseDaemon(object):
         gevent.signal(signal.SIGQUIT, self._shutdown)
         gevent.signal(signal.SIGINT, self._shutdown)
 
-    def _status(self):
-        """Returns a status dict."""
-        return {
-            'status': 'ok',
-            'version': self.VERSION,
-            'type': self.TYPE,
-            'uptime': int(time() - self._started_at),  # seconds
-            'stats': self._stats,
-        }
-
     def run(self):
         """Spawn."""
 
-        status = StatusGreenlet(self._status)
+        status = StatusGreenlet(self)
         status.start()
 
         worker = gevent.spawn(self.work)
