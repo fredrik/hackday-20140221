@@ -5,12 +5,34 @@ from time import time
 import requests
 import gevent
 from gevent.wsgi import WSGIServer
-
-from app import app
+from flask import Flask
 
 
 TOWER = 'http://localhost:6400'
 
+
+# HTTP API
+##
+"""
+The simple HTTP server `app` is instantiated
+at a random port in `StatusGreenlet.serve`.
+"""
+# TODO: look at class-based views.
+# TODO: error handling lets us know what's wrong.
+app = Flask('worker-status')
+
+@app.route('/')
+def status():
+    try:
+        status = app._status()
+    except:
+        return json.dumps({'status': 'fail'})
+
+    return json.dumps(status)
+
+
+# Greenlet
+##
 
 class StatusGreenlet(gevent.Greenlet):
     """
@@ -42,6 +64,12 @@ class StatusGreenlet(gevent.Greenlet):
         }
 
     def _run(self):
+        """
+        Override `gevent.Greenlet._run`.
+
+        Spawns a HTTP server at a random port and
+        sends off a registration to control tower.
+        """
         port = random.choice(xrange(*self.PORT_RANGE))
         address = 'http://localhost:{}/'.format(port)
 
