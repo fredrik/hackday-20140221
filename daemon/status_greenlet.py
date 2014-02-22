@@ -19,12 +19,13 @@ at a random port in `StatusGreenlet.serve`.
 """
 # TODO: look at class-based views.
 # TODO: error handling lets us know what's wrong.
-app = Flask('worker-status')
+flaskapp = Flask('worker-status')
 
-@app.route('/')
+
+@flaskapp.route('/')
 def status():
     try:
-        status = app._status()
+        status = flaskapp._status()
     except:
         return json.dumps({'status': 'fail'})
 
@@ -85,8 +86,8 @@ class StatusGreenlet(gevent.Greenlet):
         """
         Serve status over HTTP forever.
         """
-        app._status = self._status
-        http_server = WSGIServer(('', port), app)
+        flaskapp._status = self._status
+        http_server = WSGIServer(('', port), flaskapp)
         http_server.serve_forever()
 
     def register(self, address):
