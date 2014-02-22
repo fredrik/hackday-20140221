@@ -4,7 +4,7 @@ from collections import Counter
 
 import gevent
 
-from status import StatusGreenlet
+from status_greenlet import StatusGreenlet
 
 
 class Daemon(object):
