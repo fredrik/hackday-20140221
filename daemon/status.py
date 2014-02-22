@@ -9,11 +9,18 @@ from gevent.wsgi import WSGIServer
 from app import app
 
 
-API_ADDRESS = 'http://localhost:6400'
+TOWER = 'http://localhost:6400'
 
 
 class StatusGreenlet(gevent.Greenlet):
-    """Expose `status_function` over HTTP."""
+    """
+    Expose vital daemon characteristics and statistics,
+    for some observed object. The observed object must
+    set `_started_at`, and `_stats` is assumed to be
+    interesting.
+
+    self.observed is the object of our scrutiny.
+    """
 
     PORT_RANGE = (9000, 9900)
 
@@ -41,25 +48,30 @@ class StatusGreenlet(gevent.Greenlet):
         server = gevent.Greenlet.spawn(self.serve, port)
         register = gevent.Greenlet.spawn(self.register, address)
 
-        print 'StatusGreenlet serving on {}/'.format(address)
+        print 'StatusGreenlet serving on {}'.format(address)
 
         register.join()
         server.join()
 
     def serve(self, port):
+        """
+        Serve status over HTTP forever.
+        """
         app._status = self._status
         http_server = WSGIServer(('', port), app)
         http_server.serve_forever()
 
     def register(self, address):
         """Register with control tower."""
-        url = '{base}/register'.format(base=API_ADDRESS)
+        url = '{tower}/register'.format(tower=TOWER)
         data = {
             'address': address,
             'type': self.observed.TYPE,
         }
         headers = {'Content-type': 'application/json'}
         response = requests.post(url, data=json.dumps(data), headers=headers)
+
+        response.raise_for_status()
 
         # store registration info.
         data = json.loads(response.text)
@@ -74,11 +86,15 @@ class StatusGreenlet(gevent.Greenlet):
         if not self._worker_id:
             print "can't deregister; not registered."
             return
-        url = '{}/worker/{}/deregister'.format(API_ADDRESS, self._worker_id)
+        url = '{tower}/worker/{id}/deregister'.format(
+            tower=TOWER,
+            id=self._worker_id
+        )
         data = {'secret_key': self._secret_key}
         headers = {'Content-type': 'application/json'}
         response = requests.post(url, data=json.dumps(data), headers=headers)
 
         response.raise_for_status()
+
         print 'deregistered', self._worker_id
         return True
